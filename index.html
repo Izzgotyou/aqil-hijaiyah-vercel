@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Permainan Padanan Huruf Hijaiyah</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; background: #111; color: white; overflow-x: hidden; }
+    h1 { margin: 20px; font-size: 28px; color: #ffd700; animation: fadeIn 2s ease-in-out; }
+    #score, #timer { font-size: 20px; margin-bottom: 10px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 100px);
+      grid-gap: 10px;
+      justify-content: center;
+      margin: 20px auto;
+    }
+    .card {
+      background: linear-gradient(135deg, #6e44ff, #33d9b2);
+      width: 100px; height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: bold;
+      border-radius: 10px;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.4s ease;
+    }
+    .card:hover { transform: scale(1.05); }
+    .card img { width: 60px; height: 60px; }
+    .hidden { background: #222; color: #222; }
+    .button-start {
+      background: #28a745;
+      color: white;
+      font-size: 18px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-bottom: 20px;
+      transition: background 0.3s ease;
+    }
+    .button-start:hover { background: #218838; }
+    #winMessage {
+      display: none;
+      font-size: 24px;
+      color: #00ffcc;
+      margin-top: 20px;
+      animation: fadeIn 2s ease-in-out;
+    }
+
+    #aqil {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      animation: slideIn 2s ease forwards;
+      margin-top: 30px;
+    }
+    #aqilImg {
+      width: 200px;
+      border-radius: 20px;
+      filter: drop-shadow(0 0 10px #00f0ff);
+      animation: glowLoop 3s infinite alternate;
+    }
+    #aqilDialog {
+      margin-top: 10px;
+      background: rgba(0,255,255,0.2);
+      border: 1px solid #00f0ff;
+      padding: 10px 15px;
+      border-radius: 10px;
+      max-width: 280px;
+      font-size: 16px;
+      color: #00f0ff;
+      font-style: italic;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideIn {
+      from { transform: translateX(-100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes glowLoop {
+      from { filter: drop-shadow(0 0 5px #00f0ff); }
+      to { filter: drop-shadow(0 0 20px #00f0ff); }
+    }
+  </style>
+</head>
+<body>
+  <h1>Permainan Padanan Huruf Hijaiyah</h1>
+  <button class="button-start" onclick="startGame()">Mula Semula Permainan</button>
+  <div id="score">Skor: 0</div>
+  <div id="timer">Masa: 0s</div>
+  <div class="grid" id="gameGrid"></div>
+  <div id="winMessage">🎉 Tahniah! Anda telah padankan semua huruf! 🎉</div>
+
+  <div id="aqil">
+    <img src="aqil-pulsefire.jpg" alt="Aqil" id="aqilImg" />
+    <div id="aqilDialog">Selamat datang ke medan latihan!</div>
+  </div>
+
+  <audio id="matchSound" preload="auto" src="https://cdn.pixabay.com/audio/2023/03/03/audio_eb31cb5275.mp3"></audio>
+  <audio id="wrongSound" preload="auto" src="https://cdn.pixabay.com/audio/2022/08/04/audio_c858c4cb0c.mp3"></audio>
+  <audio id="bgMusic" preload="auto" src="https://cdn.pixabay.com/audio/2023/09/04/audio_c1673d93ab.mp3" loop></audio>
+  <audio id="characterSound" preload="auto" src="https://cdn.pixabay.com/audio/2022/03/22/audio_409060f47d.mp3"></audio>
+  <audio id="winSound" preload="auto" src="https://cdn.pixabay.com/audio/2022/08/05/audio_0be892ef9c.mp3"></audio>
+
+  <script>
+    let items = [
+      { text: 'خَ', audio: 'kho', emoji: '📅' },
+      { text: 'نَ', audio: 'na', emoji: '🍚' },
+      { text: 'تَ', audio: 'ta', emoji: '🪢' },
+      { text: 'أَ', audio: 'a', emoji: '🐓' },
+      { text: 'دَ', audio: 'da', emoji: '🎲' },
+      { text: 'بَ', audio: 'ba', emoji: '👕' }
+    ];
+
+    const grid = document.getElementById('gameGrid');
+    const matchSound = document.getElementById('matchSound');
+    const wrongSound = document.getElementById('wrongSound');
+    const characterSound = document.getElementById('characterSound');
+    const winSound = document.getElementById('winSound');
+    const scoreDisplay = document.getElementById('score');
+    const timerDisplay = document.getElementById('timer');
+    const winMessage = document.getElementById('winMessage');
+    const aqilDialog = document.getElementById('aqilDialog');
+    const kataSemangat = [
+      "Hebat! Teruskan padanan!",
+      "Jangan risau, cuba lagi.",
+      "Fokus dan ingat hurufnya.",
+      "Aqil percaya anda boleh!"
+    ];
+
+    let selected = [];
+    let score = 0;
+    let matchedPairs = 0;
+    let startTime;
+    let timerInterval;
+
+    function aqilCakap(text) {
+      aqilDialog.textContent = text;
+    }
+
+    function startGame() {
+      grid.innerHTML = '';
+      score = 0;
+      matchedPairs = 0;
+      selected = [];
+      scoreDisplay.textContent = `Skor: ${score}`;
+      winMessage.style.display = 'none';
+      aqilCakap("Sedia? Jom mulakan!");
+
+      const cards = [...items, ...items].sort(() => 0.5 - Math.random());
+
+      cards.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = 'card hidden';
+        card.dataset.index = index;
+        card.innerHTML = '?';
+        grid.appendChild(card);
+
+        card.addEventListener('click', () => {
+          characterSound.play();
+          if (selected.length < 2 && !card.classList.contains('revealed') && !card.classList.contains('matched')) {
+            card.classList.remove('hidden');
+            card.classList.add('revealed');
+            card.innerHTML = `${item.text}<br>${item.emoji}`;
+            selected.push({ index, item, card });
+
+            if (selected.length === 2) {
+              setTimeout(() => {
+                if (selected[0].item.text === selected[1].item.text && selected[0].index !== selected[1].index) {
+                  selected.forEach(sel => sel.card.classList.add('matched'));
+                  matchSound.play();
+                  score += 10;
+                  matchedPairs++;
+                  scoreDisplay.textContent = `Skor: ${score}`;
+                  aqilCakap("Syabas! Padanan yang tepat!");
+                  if (matchedPairs === items.length) {
+                    winSound.play();
+                    winMessage.style.display = 'block';
+                    aqilCakap("Tahniah, wira Hijaiyah! Anda berjaya!");
+                    clearInterval(timerInterval);
+                  }
+                } else {
+                  wrongSound.play();
+                  aqilCakap(kataSemangat[Math.floor(Math.random() * kataSemangat.length)]);
+                  selected.forEach(sel => {
+                    sel.card.classList.remove('revealed');
+                    sel.card.classList.add('hidden');
+                    sel.card.innerHTML = '?';
+                  });
+                }
+                selected = [];
+              }, 800);
+            }
+          }
+        });
+      });
+
+      // Timer
+      clearInterval(timerInterval);
+      startTime = Date.now();
+      timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        timerDisplay.textContent = `Masa: ${elapsed}s`;
+      }, 1000);
+    }
+
+    window.onload = () => {
+  const bgMusic = document.getElementById('bgMusic');
+  const matchSound = document.getElementById('matchSound');
+  const wrongSound = document.getElementById('wrongSound');
+  const winSound = document.getElementById('winSound');
+  const characterSound = document.getElementById('characterSound');
+
+  bgMusic.volume = 0.5;
+  matchSound.volume = 1;
+  wrongSound.volume = 1;
+  winSound.volume = 1;
+  characterSound.volume = 1;
+
+  // Ensure music plays on user click
+  document.querySelector('.button-start').addEventListener('click', () => {
+    bgMusic.play().catch(() => console.log('Autoplay disekat oleh browser.'));
+  });
+
+      startGame();
+      document.getElementById('bgMusic').play().then(() => console.log("Music playing")).catch(() => {
+        console.log('Auto-play disekat, pemain perlu klik');
+      });
+    };
+  </script>
+</body>
+</html>
